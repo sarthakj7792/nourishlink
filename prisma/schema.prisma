@@ -1,0 +1,103 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(uuid())
+  name         String
+  email        String        @unique
+  passwordHash String
+  role         String        @default("RECIPIENT") // "DONOR", "RECIPIENT", "ADMIN"
+  phone        String?
+  address      String?
+  city         String?
+  zipCode      String?
+  isVerified   Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  donations    FoodDonation[]
+  requests     RecipientRequest[]
+}
+
+model FoodBank {
+  id           String         @id @default(uuid())
+  name         String
+  address      String
+  city         String
+  zipCode      String
+  contactPhone String?
+  contactEmail String?
+  capacityKg   Float          @default(5000)
+  currentStockKg Float        @default(0)
+  operatingHours String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  donations    FoodDonation[]
+  requests     RecipientRequest[]
+}
+
+model FoodDonation {
+  id             String       @id @default(uuid())
+  donorId        String
+  foodBankId     String?
+  title          String
+  description    String?
+  category       String       // "PRODUCE", "BAKERY", "DAIRY", "CANNED", "PREPARED", "BEVERAGES", "OTHER"
+  quantity       Float
+  unit           String       // "KG", "LBS", "ITEMS", "BOXES"
+  perishableDate DateTime
+  storageReq     String       @default("AMBIENT") // "AMBIENT", "REFRIGERATED", "FROZEN"
+  status         String       @default("AVAILABLE") // "AVAILABLE", "RESERVED", "DISTRIBUTED", "EXPIRED", "CANCELLED"
+  aiUrgencyScore Int          @default(50) // 1-100 calculated triage urgency
+  aiTriageNotes  String?
+  dietaryTags    String       @default("[]") // JSON string array of tags: ["Vegetarian", "Gluten-Free", "Halal"]
+  pickupAddress  String?
+  notes          String?
+  imageUrl       String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  donor          User         @relation(fields: [donorId], references: [id], onDelete: Cascade)
+  foodBank       FoodBank?    @relation(fields: [foodBankId], references: [id], onDelete: SetNull)
+  distributionLogs DistributionLog[]
+}
+
+model RecipientRequest {
+  id                  String       @id @default(uuid())
+  recipientId         String
+  foodBankId          String?
+  householdSize       Int          @default(1)
+  dietaryRequirements String       @default("[]") // JSON string array: ["Gluten-Free", "Halal", "Diabetic-Friendly"]
+  urgency             String       @default("MEDIUM") // "LOW", "MEDIUM", "HIGH", "EMERGENCY"
+  status              String       @default("PENDING") // "PENDING", "MATCHED", "FULFILLED", "CANCELLED"
+  specialNotes        String?
+  matchedDonationId   String?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  recipient           User         @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  foodBank            FoodBank?    @relation(fields: [foodBankId], references: [id], onDelete: SetNull)
+  distributionLogs    DistributionLog[]
+}
+
+model DistributionLog {
+  id             String          @id @default(uuid())
+  donationId     String?
+  requestId      String?
+  distributedAt  DateTime        @default(now())
+  verifiedBy     String          @default("System/Staff")
+  notes          String?
+
+  donation       FoodDonation?   @relation(fields: [donationId], references: [id], onDelete: SetNull)
+  request        RecipientRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+}
